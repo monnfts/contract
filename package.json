@@ -1,6 +1,6 @@
 {
   "devDependencies": {
-    "@openzeppelin/contracts": "4.3.1",
+    "@openzeppelin/contracts": "^4.4.1",
     "@openzeppelin/test-helpers": "0.5.13",
     "truffle-plugin-verify": "0.5.12"
   },
