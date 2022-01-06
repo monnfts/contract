@@ -20,14 +20,12 @@ contract MONPrivateSale is Ownable, ReentrancyGuard {
     uint256 public startTime;
     uint256 public endTime;
 
-    // Whitelisting list
-    mapping(address => bool) public whiteListed;
     // Total MON token user bought
     mapping(address => uint256) public userBought;
     // Total BUSD token user deposite
     mapping(address => uint256) public userDeposited;
     // Total MON token user claimed
-    mapping(address => uint256) public userClaimned;
+    mapping(address => uint256) public userClaimed;
     // Total MON sold
     uint256 public totalTokenSold = 0;
 
@@ -90,9 +88,24 @@ contract MONPrivateSale is Ownable, ReentrancyGuard {
         require(tokenQuantity > 0, "Token quantity is not enough to claim");
         require(MON.transfer(_msgSender(), tokenQuantity), "Can not transfer MON token");
 
-        userClaimned[_msgSender()] += tokenQuantity;
+        userClaimed[_msgSender()] += tokenQuantity;
 
         emit TokenClaim(_msgSender(), tokenQuantity);
+    }
+
+    function getTokenClaimable(address _buyer) public view returns(uint256) {
+        uint256 userBoughtAmount = userBought[_buyer];
+        uint256 startIndex = claimCounts[_buyer];
+        uint256 tokenQuantity = 0;
+        for(uint256 index = startIndex; index < claimableTimestamp.length; index++){
+            uint256 timestamp = claimableTimestamp[index];
+            if(block.timestamp >= timestamp){
+                tokenQuantity += userBoughtAmount * claimablePercents[timestamp] / 100;
+            }else{
+                break;
+            }
+        }
+        return tokenQuantity;
     }
 
     function getTokenBought(address _buyer) public view returns(uint256) {
@@ -147,20 +160,6 @@ contract MONPrivateSale is Ownable, ReentrancyGuard {
     function setMONToken(address _newAddress) external onlyOwner {
         require(_newAddress != address(0), "Zero address");
         MON = IERC20(_newAddress);
-    }
-
-    function addToWhiteList(address[] memory _accounts) external onlyOwner {
-        require(_accounts.length > 0, "Invalid input");
-        for (uint256 index; index < _accounts.length; index++) {
-            whiteListed[_accounts[index]] = true;
-        }
-    }
-
-    function removeFromWhiteList(address[] memory _accounts) external onlyOwner {
-        require(_accounts.length > 0, "Invalid input");
-        for(uint256 index = 0; index < _accounts.length; index++){
-            whiteListed[_accounts[index]] = false;
-        }
     }
 
     function withdrawFunds() external onlyOwner {
