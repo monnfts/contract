@@ -15,8 +15,8 @@ contract MONPrivateSale is Ownable, ReentrancyGuard {
     uint256 public constant DECIMAL_PRICE = 10000;
 
     uint256 public priceToken = 22; // 0.0022 BUSD
-    uint256 public minSpend;
-    uint256 public maxSpend;
+    uint256 public minSpend = 100_000_000_000_000_000_000; // min: 100 busd
+    uint256 public maxSpend = 10_000_000_000_000_000_000_000;  // max: 10,000 busd
     uint256 public startTime;
     uint256 public endTime;
 
@@ -24,6 +24,8 @@ contract MONPrivateSale is Ownable, ReentrancyGuard {
     mapping(address => bool) public whiteListed;
     // Total MON token user bought
     mapping(address => uint256) public userBought;
+    // Total BUSD token user deposite
+    mapping(address => uint256) public userDeposited;
     // Total MON token user claimed
     mapping(address => uint256) public userClaimned;
     // Total MON sold
@@ -49,15 +51,16 @@ contract MONPrivateSale is Ownable, ReentrancyGuard {
         require(block.timestamp >= startTime, "Private sale has not started");
         require(block.timestamp <= endTime, "Private sale has ended");
 
-        require(userBought[_msgSender()] + _amount >= minSpend, "Below minimum amount");
-        require(userBought[_msgSender()] + _amount <= maxSpend, "You have reached maximum spend amount per user");
+        require(userDeposited[_msgSender()] + _amount >= minSpend, "Below minimum amount");
+        require(userDeposited[_msgSender()] + _amount <= maxSpend, "You have reached maximum spend amount per user");
 
         uint256 tokenQuantity = _amount / priceToken * DECIMAL_PRICE;
         require(totalTokenSold + tokenQuantity <= HARD_CAP, "Token private sale hardcap reached");
 
         buyingToken.transferFrom(_msgSender(), address(this), _amount);
 
- 		userBought[_msgSender()] += tokenQuantity;
+        userBought[_msgSender()] += tokenQuantity;
+        userDeposited[_msgSender()] += _amount;
         totalTokenSold += tokenQuantity;
 
         emit TokenBuy(_msgSender(), tokenQuantity);
@@ -92,7 +95,7 @@ contract MONPrivateSale is Ownable, ReentrancyGuard {
         emit TokenClaim(_msgSender(), tokenQuantity);
     }
 
-    function getTokenBought(address _buyer) public view returns(uint256){
+    function getTokenBought(address _buyer) public view returns(uint256) {
         require(_buyer != address(0), "Zero address");
         return userBought[_buyer];
     }
@@ -102,7 +105,7 @@ contract MONPrivateSale is Ownable, ReentrancyGuard {
         uint256 _minSpend,
         uint256 _maxSpend,
         uint256 _startTime,
-        uint256 _endTime) external onlyOwner{
+        uint256 _endTime) external onlyOwner {
         require(_minSpend < _maxSpend, "Spend invalid");
         require(_startTime < _endTime, "Time invalid");
 
@@ -113,12 +116,22 @@ contract MONPrivateSale is Ownable, ReentrancyGuard {
         endTime = _endTime;
     }
 
-    function setClaimableTimes(uint256[] memory _timestamp) external onlyOwner{
+    function setSaleTime(uint256 _startTime, uint256 _endTime) external onlyOwner {
+        require(_startTime < _endTime, "Time invalid");
+        startTime = _startTime;
+        endTime = _endTime;
+    }
+
+    function getSaleInfo() public view returns(uint256, uint256, uint256, uint256, uint256){
+        return (priceToken, minSpend, maxSpend, startTime, endTime);
+    }
+
+    function setClaimableTimes(uint256[] memory _timestamp) external onlyOwner {
         require(_timestamp.length > 0, "Empty input");
         claimableTimestamp = _timestamp;
     }
 
-    function setClaimablePercents(uint256[] memory _timestamps, uint256[] memory _percents) external onlyOwner{
+    function setClaimablePercents(uint256[] memory _timestamps, uint256[] memory _percents) external onlyOwner {
         require(_timestamps.length > 0, "Empty input");
         require(_timestamps.length == _percents.length, "Empty input");
         for(uint256 index = 0; index < _timestamps.length; index++){
@@ -126,24 +139,24 @@ contract MONPrivateSale is Ownable, ReentrancyGuard {
         }
     }
 
-    function setBuyingToken(address _newAddress) external onlyOwner{
+    function setBuyingToken(address _newAddress) external onlyOwner {
         require(_newAddress != address(0), "Zero address");
         buyingToken = IERC20(_newAddress);
     }
 
-    function setMONToken(address _newAddress) external onlyOwner{
+    function setMONToken(address _newAddress) external onlyOwner {
         require(_newAddress != address(0), "Zero address");
         MON = IERC20(_newAddress);
     }
 
     function addToWhiteList(address[] memory _accounts) external onlyOwner {
         require(_accounts.length > 0, "Invalid input");
-        for (uint256 i; i < _accounts.length; i++) {
-            whiteListed[_accounts[i]] = true;
+        for (uint256 index; index < _accounts.length; index++) {
+            whiteListed[_accounts[index]] = true;
         }
     }
 
-    function removeFromWhiteList(address[] memory _accounts) external onlyOwner{
+    function removeFromWhiteList(address[] memory _accounts) external onlyOwner {
         require(_accounts.length > 0, "Invalid input");
         for(uint256 index = 0; index < _accounts.length; index++){
             whiteListed[_accounts[index]] = false;
